@@ -1,0 +1,38 @@
+name: Verify fixtures
+on: [push, pull_request]
+permissions: {}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        fixture: [valid, no-api-version, build-fails, big-js, fetch-bypass, extra-string]
+    defaults:
+      run:
+        working-directory: ${{ matrix.fixture }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - run: npx --yes --package=pnpm@10.33.0 pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile
+      - name: Build and assert expected outcome
+        env:
+          FIXTURE: ${{ matrix.fixture }}
+        run: |
+          set -euo pipefail
+          if [[ "$FIXTURE" == build-fails ]]; then
+            if ./node_modules/.bin/busy-cli build; then
+              echo 'build-fails unexpectedly built successfully'; exit 1
+            fi
+          else
+            ./node_modules/.bin/busy-cli build
+            if [[ "$FIXTURE" == big-js ]]; then
+              test -n "$(find dist -name '*.js' -size +256000c -print -quit)"
+            fi
+          fi
