@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        fixture: [valid, no-api-version, build-fails, big-js, fetch-bypass, extra-string]
+        fixture: [valid, no-api-version, build-fails, big-js, fetch-bypass, extra-string, screenshot-wrong-size, screenshot-not-png, no-lockfile]
     defaults:
       run:
         working-directory: ${{ matrix.fixture }}
@@ -20,8 +20,16 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '24'
-      - run: npx --yes --package=pnpm@10.33.0 pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile
+      - name: A frozen install without a lock file must fail
+        if: matrix.fixture == 'no-lockfile'
+        run: |
+          if npx --yes --package=pnpm@10.33.0 pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile; then
+            echo 'no-lockfile unexpectedly installed'; exit 1
+          fi
+      - if: matrix.fixture != 'no-lockfile'
+        run: npx --yes --package=pnpm@10.33.0 pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile
       - name: Build and assert expected outcome
+        if: matrix.fixture != 'no-lockfile'
         env:
           FIXTURE: ${{ matrix.fixture }}
         run: |
